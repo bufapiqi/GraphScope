@@ -17,6 +17,8 @@ public class DataLoadConfig {
     public static final String USER_NAME = "auth.username";
     public static final String PASS_WORD = "auth.password";
     public static final String WAIT_TIME_BEFORE_COMMIT = "wait.time.before.commit";
+    public static final String VIP_SERVER_DOMAIN = "vipserver.domain";
+    public static final String REPLAY_DATE = "replaydate";
 
     /** job on HDFS configurations **/
 

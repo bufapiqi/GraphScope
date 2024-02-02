@@ -19,6 +19,7 @@ import com.alibaba.graphscope.groot.common.schema.mapper.GraphSchemaMapper;
 import com.alibaba.graphscope.groot.common.schema.wrapper.GraphDef;
 import com.alibaba.graphscope.groot.common.util.JSON;
 import com.alibaba.graphscope.groot.common.util.UuidUtils;
+import com.alibaba.graphscope.groot.dataload.LoadTool;
 import com.alibaba.graphscope.groot.dataload.util.OSSFS;
 import com.alibaba.graphscope.groot.dataload.util.VolumeFS;
 import com.alibaba.graphscope.groot.sdk.GrootClient;
@@ -47,6 +48,9 @@ public class OfflineBuildOdps {
 
     public static void main(String[] args) throws IOException {
         String propertiesFile = args[0];
+        for (String arg : args) {
+            logger.info("arg is {}", arg);
+        }
 
         Properties properties = new Properties();
         try (InputStream is = new FileInputStream(propertiesFile)) {
@@ -63,6 +67,22 @@ public class OfflineBuildOdps {
         long waitTimeBeforeCommit =
                 Long.parseLong(
                         properties.getProperty(DataLoadConfig.WAIT_TIME_BEFORE_COMMIT, "-1"));
+
+        String vipServerDomain = properties.getProperty(DataLoadConfig.VIP_SERVER_DOMAIN, "");
+        if (!"".equals(vipServerDomain)) {
+            // if vipserver domain is not blank, get vipserver ip:port replace graphEndpoint param
+            try {
+                String vipServerEndpoint = LoadTool.getEndpointFromVipServerDomain(vipServerDomain);
+                logger.info("vipServerEndpoint is {}", vipServerEndpoint);
+                if (vipServerEndpoint != null) {
+                    graphEndpoint = vipServerEndpoint;
+                }
+            } catch (Exception e) {
+                logger.error("Get vipserver domain endpoint has error.", e);
+            }
+        }
+
+        Long replayTimeStamp = replayTimeStamp(args);
 
         String uniquePath =
                 properties.getProperty(DataLoadConfig.UNIQUE_PATH, UuidUtils.getBase64UUIDString());
@@ -178,5 +198,36 @@ public class OfflineBuildOdps {
                 }
             }
         }
+
+        if (replayTimeStamp != null) {
+            long replayStartTime = System.currentTimeMillis();
+            logger.info("start replay records: " + replayStartTime);
+            // need replay time stamp
+            List<Long> snapShotIds = client.replayRecords(-1, replayTimeStamp);
+            for (Long snapShotId : snapShotIds) {
+                client.remoteFlush(snapShotId);
+            }
+            long replayEndTime = System.currentTimeMillis();
+            logger.info("replay records end: " + replayEndTime);
+        }
+    }
+
+    /**
+     * find replay timestamp
+     * @param args
+     * @return
+     */
+    private static Long replayTimeStamp(String[] args) {
+        for (String arg : args) {
+            if (arg.contains(DataLoadConfig.REPLAY_DATE)) {
+                String[] kv = arg.split("=");
+                if (kv.length < 2) {
+                    return null;
+                }
+                String replayDate = kv[1];
+                return LoadTool.transferDateToTimeStamp(replayDate, "yyyyMMdd");
+            }
+        }
+        return null;
     }
 }
