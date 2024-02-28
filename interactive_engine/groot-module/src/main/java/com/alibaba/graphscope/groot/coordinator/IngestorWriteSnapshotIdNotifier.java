@@ -21,28 +21,26 @@ import com.alibaba.graphscope.groot.rpc.RoleClients;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class IngestorWriteSnapshotIdNotifier implements WriteSnapshotIdNotifier {
+public class IngestorWriteSnapshotIdNotifier {
     private static final Logger logger =
             LoggerFactory.getLogger(IngestorWriteSnapshotIdNotifier.class);
 
     private final RoleClients<IngestorSnapshotClient> ingestorSnapshotClients;
-    private final int ingestorCount;
+    private final int frontendCount;
 
     public IngestorWriteSnapshotIdNotifier(
             Configs configs, RoleClients<IngestorSnapshotClient> ingestorSnapshotClients) {
         this.ingestorSnapshotClients = ingestorSnapshotClients;
-        this.ingestorCount = CommonConfig.INGESTOR_NODE_COUNT.get(configs);
+        this.frontendCount = CommonConfig.FRONTEND_NODE_COUNT.get(configs);
     }
 
-    @Override
     public void notifyWriteSnapshotIdChanged(long si) {
         CompletionCallback<Long> callback =
                 new CompletionCallback<Long>() {
                     @Override
                     public void onCompleted(Long prev) {
                         if (prev > si) {
-                            logger.error(
-                                    "unexpected previousSnapshotId {}, should <= {}", prev, si);
+                            logger.error("unexpected previous SI {}, should <= {}", prev, si);
                         }
                     }
 
@@ -51,7 +49,7 @@ public class IngestorWriteSnapshotIdNotifier implements WriteSnapshotIdNotifier 
                         logger.error("error in advanceIngestSnapshotId {}: {}", si, t.toString());
                     }
                 };
-        for (int i = 0; i < this.ingestorCount; i++) {
+        for (int i = 0; i < this.frontendCount; i++) {
             try {
                 IngestorSnapshotClient client = ingestorSnapshotClients.getClient(i);
                 client.advanceIngestSnapshotId(si, callback);

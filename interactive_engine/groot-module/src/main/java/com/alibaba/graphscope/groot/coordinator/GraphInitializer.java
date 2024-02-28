@@ -16,6 +16,7 @@ package com.alibaba.graphscope.groot.coordinator;
 import com.alibaba.graphscope.groot.common.config.*;
 import com.alibaba.graphscope.groot.common.exception.GrootException;
 import com.alibaba.graphscope.groot.common.util.BackupInfo;
+import com.alibaba.graphscope.groot.coordinator.backup.BackupManager;
 import com.alibaba.graphscope.groot.meta.MetaStore;
 import com.alibaba.graphscope.groot.wal.LogService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -82,7 +83,7 @@ public class GraphInitializer {
             this.metaStore.write(SnapshotManager.WRITE_SNAPSHOT_ID_PATH, b);
         }
         if (!this.metaStore.exists(SnapshotManager.QUEUE_OFFSETS_PATH)) {
-            int queueCount = CommonConfig.INGESTOR_QUEUE_COUNT.get(this.configs);
+            int queueCount = CommonConfig.STORE_NODE_COUNT.get(this.configs);
             List<Long> offsets = new ArrayList<>(queueCount);
             for (int i = 0; i < queueCount; i++) {
                 offsets.add(-1L);
@@ -105,6 +106,17 @@ public class GraphInitializer {
                 byte[] b = this.objectMapper.writeValueAsBytes(backupInfoList);
                 this.metaStore.write(BackupManager.BACKUP_INFO_PATH, b);
             }
+        }
+    }
+
+    public void destroyAll() throws Exception {
+        if (this.logService.initialized()) {
+            this.logService.destroy();
+        }
+        String zkRoot = ZkConfig.ZK_BASE_PATH.get(configs);
+        Stat stat = this.curator.checkExists().forPath(zkRoot);
+        if (stat != null) {
+            this.curator.delete().deletingChildrenIfNeeded().forPath(zkRoot);
         }
     }
 }

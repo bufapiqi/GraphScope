@@ -16,6 +16,7 @@ gs_flex_coordinator/models/column_mapping.py
 gs_flex_coordinator/models/connection.py
 gs_flex_coordinator/models/connection_status.py
 gs_flex_coordinator/models/deployment_info.py
+gs_flex_coordinator/models/deployment_info_graphs_info_value.py
 gs_flex_coordinator/models/deployment_status.py
 gs_flex_coordinator/models/edge_mapping.py
 gs_flex_coordinator/models/edge_mapping_destination_vertex_mappings_inner.py
@@ -34,6 +35,7 @@ gs_flex_coordinator/models/groot_graph_gremlin_interface.py
 gs_flex_coordinator/models/groot_property.py
 gs_flex_coordinator/models/groot_schema.py
 gs_flex_coordinator/models/groot_vertex_type.py
+gs_flex_coordinator/models/job_status.py
 gs_flex_coordinator/models/model_property.py
 gs_flex_coordinator/models/model_schema.py
 gs_flex_coordinator/models/node_status.py
@@ -54,6 +56,5 @@ gs_flex_coordinator/openapi/openapi.yaml
 gs_flex_coordinator/test/__init__.py
 gs_flex_coordinator/typing_utils.py
 gs_flex_coordinator/util.py
-requirements.txt
 test-requirements.txt
 tox.ini

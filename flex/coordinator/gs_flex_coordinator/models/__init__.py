@@ -7,6 +7,7 @@ from gs_flex_coordinator.models.column_mapping import ColumnMapping
 from gs_flex_coordinator.models.connection import Connection
 from gs_flex_coordinator.models.connection_status import ConnectionStatus
 from gs_flex_coordinator.models.deployment_info import DeploymentInfo
+from gs_flex_coordinator.models.deployment_info_graphs_info_value import DeploymentInfoGraphsInfoValue
 from gs_flex_coordinator.models.deployment_status import DeploymentStatus
 from gs_flex_coordinator.models.edge_mapping import EdgeMapping
 from gs_flex_coordinator.models.edge_mapping_destination_vertex_mappings_inner import EdgeMappingDestinationVertexMappingsInner
@@ -25,6 +26,7 @@ from gs_flex_coordinator.models.groot_graph_gremlin_interface import GrootGraphG
 from gs_flex_coordinator.models.groot_property import GrootProperty
 from gs_flex_coordinator.models.groot_schema import GrootSchema
 from gs_flex_coordinator.models.groot_vertex_type import GrootVertexType
+from gs_flex_coordinator.models.job_status import JobStatus
 from gs_flex_coordinator.models.model_property import ModelProperty
 from gs_flex_coordinator.models.model_schema import ModelSchema
 from gs_flex_coordinator.models.node_status import NodeStatus

@@ -179,7 +179,7 @@ static std::string value_pb_to_str(const common::Value& value) {
   }
 }
 
-bool constains_vertex_id(const std::vector<codegen::ParamConst>& params) {
+bool contains_vertex_id(const std::vector<codegen::ParamConst>& params) {
   for (auto& param : params) {
     if (param.type == codegen::DataType::kVertexId ||
         param.type == codegen::DataType::kEdgeId) {
@@ -245,7 +245,7 @@ static common::DataType eval_expr_return_type(const common::Expression& expr) {
   return tmp_stack.top().node_type().data_type();
 }
 
-// Simlutate the calculation of expression, return the result data type.
+// Simulate the calculation of expression, return the result data type.
 // convert to prefix expression
 
 /*Build a expression struct from expression*/
@@ -408,7 +408,7 @@ class ExprBuilder {
     }
   }
 
-  // Add extract operator with var. Currently not support extract on a compicate
+  // Add extract operator with var. Currently not support extract on a complicated
   // expression.
   void AddExtractOpr(const common::Extract& extract_opr,
                      const common::ExprOpr& expr_opr) {
@@ -518,7 +518,7 @@ class ExprBuilder {
 
   std::string get_func_call_typename_str() const {
     std::string typename_template = "";
-    if (constains_vertex_id(func_call_vars_)) {
+    if (contains_vertex_id(func_call_vars_)) {
       typename_template = "template <typename vertex_id_t>";
     }
     return typename_template;

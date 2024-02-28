@@ -22,6 +22,7 @@ from graphscope.flex.rest.models.column_mapping import ColumnMapping
 from graphscope.flex.rest.models.connection import Connection
 from graphscope.flex.rest.models.connection_status import ConnectionStatus
 from graphscope.flex.rest.models.deployment_info import DeploymentInfo
+from graphscope.flex.rest.models.deployment_info_graphs_info_value import DeploymentInfoGraphsInfoValue
 from graphscope.flex.rest.models.deployment_status import DeploymentStatus
 from graphscope.flex.rest.models.edge_mapping import EdgeMapping
 from graphscope.flex.rest.models.edge_mapping_destination_vertex_mappings_inner import EdgeMappingDestinationVertexMappingsInner
@@ -40,6 +41,7 @@ from graphscope.flex.rest.models.groot_graph_gremlin_interface import GrootGraph
 from graphscope.flex.rest.models.groot_property import GrootProperty
 from graphscope.flex.rest.models.groot_schema import GrootSchema
 from graphscope.flex.rest.models.groot_vertex_type import GrootVertexType
+from graphscope.flex.rest.models.job_status import JobStatus
 from graphscope.flex.rest.models.model_property import ModelProperty
 from graphscope.flex.rest.models.model_schema import ModelSchema
 from graphscope.flex.rest.models.node_status import NodeStatus

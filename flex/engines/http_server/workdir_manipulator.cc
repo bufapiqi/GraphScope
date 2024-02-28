@@ -95,7 +95,7 @@ gs::Result<seastar::sstring> WorkDirManipulator::CreateGraph(
            << GetGraphSchemaPath(graph_name);
 
   return gs::Result<seastar::sstring>(
-      seastar::sstring("successfuly created graph "));
+      seastar::sstring("successfully created graph "));
 }
 
 gs::Result<seastar::sstring> WorkDirManipulator::GetGraphSchemaString(
@@ -117,7 +117,7 @@ gs::Result<seastar::sstring> WorkDirManipulator::GetGraphSchemaString(
   if (!schema_str_res.ok()) {
     return gs::Result<seastar::sstring>(
         gs::Status(gs::StatusCode::NotExists,
-                   "Failt to read schema file: " + schema_file +
+                   "Failed to read schema file: " + schema_file +
                        ", error: " + schema_str_res.status().error_message()));
   } else {
     return gs::Result<seastar::sstring>(schema_str_res.value());
@@ -639,7 +639,7 @@ gs::Result<seastar::sstring> WorkDirManipulator::UpdateProcedure(
         gs::Status(gs::StatusCode::InternalError,
                    "Fail to parse parameter as json: " + parameters));
   }
-  VLOG(1) << "Successfully parse json paramters: " << json.dump();
+  VLOG(1) << "Successfully parse json parameters: " << json.dump();
   // load plugin_file as yaml
   YAML::Node plugin_node;
   try {
@@ -1229,9 +1229,7 @@ gs::Result<seastar::sstring> WorkDirManipulator::disable_procedure_on_graph(
   // error: procedure already exists.
   // remove procedure from enable_lists
   auto new_enable_list = YAML::Node(YAML::NodeType::Sequence);
-  int ind = -1;
   for (auto iter = enable_lists.begin(); iter != enable_lists.end(); iter++) {
-    ind += 1;
     if (iter->as<std::string>() == procedure_name) {
       LOG(INFO) << "Found procedure " << procedure_name << " in enable_lists";
       break;

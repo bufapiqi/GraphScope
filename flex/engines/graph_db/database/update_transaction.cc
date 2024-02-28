@@ -153,8 +153,8 @@ bool UpdateTransaction::AddVertex(label_t label, const Any& oid,
   return true;
 }
 
-static size_t get_offset(
-    const std::shared_ptr<MutableCsrConstEdgeIterBase>& base, vid_t target) {
+static size_t get_offset(const std::shared_ptr<CsrConstEdgeIterBase>& base,
+                         vid_t target) {
   size_t offset = 0;
   while (base != nullptr && base->is_valid()) {
     if (base->get_neighbor() == target) {
@@ -245,8 +245,7 @@ bool UpdateTransaction::vertex_iterator::SetField(int col_id,
 UpdateTransaction::edge_iterator::edge_iterator(
     bool dir, label_t label, vid_t v, label_t neighbor_label,
     label_t edge_label, const vid_t* aeb, const vid_t* aee,
-    std::shared_ptr<MutableCsrConstEdgeIterBase> init_iter,
-    UpdateTransaction* txn)
+    std::shared_ptr<CsrConstEdgeIterBase> init_iter, UpdateTransaction* txn)
     : dir_(dir),
       label_(label),
       v_(v),
@@ -344,8 +343,8 @@ UpdateTransaction::vertex_iterator UpdateTransaction::GetVertexIterator(
 }
 
 UpdateTransaction::edge_iterator UpdateTransaction::GetOutEdgeIterator(
-    label_t label, vid_t u, label_t neighnor_label, label_t edge_label) {
-  size_t csr_index = get_out_csr_index(label, neighnor_label, edge_label);
+    label_t label, vid_t u, label_t neighbor_label, label_t edge_label) {
+  size_t csr_index = get_out_csr_index(label, neighbor_label, edge_label);
   const vid_t* begin = nullptr;
   const vid_t* end = nullptr;
   auto iter = added_edges_[csr_index].find(u);
@@ -356,17 +355,17 @@ UpdateTransaction::edge_iterator UpdateTransaction::GetOutEdgeIterator(
   return {true,
           label,
           u,
-          neighnor_label,
+          neighbor_label,
           edge_label,
           begin,
           end,
-          graph_.get_outgoing_edges(label, u, neighnor_label, edge_label),
+          graph_.get_outgoing_edges(label, u, neighbor_label, edge_label),
           this};
 }
 
 UpdateTransaction::edge_iterator UpdateTransaction::GetInEdgeIterator(
-    label_t label, vid_t u, label_t neighnor_label, label_t edge_label) {
-  size_t csr_index = get_in_csr_index(label, neighnor_label, edge_label);
+    label_t label, vid_t u, label_t neighbor_label, label_t edge_label) {
+  size_t csr_index = get_in_csr_index(label, neighbor_label, edge_label);
   const vid_t* begin = nullptr;
   const vid_t* end = nullptr;
   auto iter = added_edges_[csr_index].find(u);
@@ -377,11 +376,11 @@ UpdateTransaction::edge_iterator UpdateTransaction::GetInEdgeIterator(
   return {false,
           label,
           u,
-          neighnor_label,
+          neighbor_label,
           edge_label,
           begin,
           end,
-          graph_.get_incoming_edges(label, u, neighnor_label, edge_label),
+          graph_.get_incoming_edges(label, u, neighbor_label, edge_label),
           this};
 }
 
@@ -605,7 +604,7 @@ void UpdateTransaction::IngestWal(MutablePropertyFragment& graph,
       CHECK(graph.get_lid(label, v, v_lid));
       CHECK(graph.get_lid(neighbor_label, nbr, nbr_lid));
 
-      std::shared_ptr<MutableCsrEdgeIterBase> edge_iter(nullptr);
+      std::shared_ptr<CsrEdgeIterBase> edge_iter(nullptr);
       if (dir == 0) {
         edge_iter = graph.get_incoming_edges_mut(label, v_lid, neighbor_label,
                                                  edge_label);
@@ -778,7 +777,7 @@ void UpdateTransaction::applyEdgesUpdates() {
             continue;
           }
 
-          std::shared_ptr<MutableCsrEdgeIterBase> edge_iter =
+          std::shared_ptr<CsrEdgeIterBase> edge_iter =
               graph_.get_outgoing_edges_mut(src_label, pair.first, dst_label,
                                             edge_label);
           for (auto& edge : updates) {
@@ -833,7 +832,7 @@ void UpdateTransaction::applyEdgesUpdates() {
           if (updates.empty()) {
             continue;
           }
-          std::shared_ptr<MutableCsrEdgeIterBase> edge_iter =
+          std::shared_ptr<CsrEdgeIterBase> edge_iter =
               graph_.get_incoming_edges_mut(dst_label, pair.first, src_label,
                                             edge_label);
           for (auto& edge : updates) {
