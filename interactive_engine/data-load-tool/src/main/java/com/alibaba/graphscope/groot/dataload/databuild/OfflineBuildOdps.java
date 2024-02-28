@@ -46,7 +46,7 @@ public class OfflineBuildOdps {
     private static final Logger logger = LoggerFactory.getLogger(OfflineBuildOdps.class);
     private static Odps odps;
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws Exception {
         String propertiesFile = args[0];
         for (String arg : args) {
             logger.info("arg is {}", arg);
@@ -68,21 +68,29 @@ public class OfflineBuildOdps {
                 Long.parseLong(
                         properties.getProperty(DataLoadConfig.WAIT_TIME_BEFORE_COMMIT, "-1"));
 
-        String vipServerDomain = properties.getProperty(DataLoadConfig.VIP_SERVER_DOMAIN, "");
-        if (!"".equals(vipServerDomain)) {
+        long waitTimeBeforeReplay =
+                Long.parseLong(
+                        properties.getProperty(DataLoadConfig.WAIT_TIME_BEFORE_REPLAY, "-1"));
+
+        String primaryVipServerDomain = properties.getProperty(DataLoadConfig.PRIMARY_VIP_SERVER_DOMAIN, "");
+        String secondaryVipServerDomain = properties.getProperty(DataLoadConfig.SECONDARY_VIP_SERVER_DOMAIN, "");
+        if (!"".equals(primaryVipServerDomain)) {
             // if vipserver domain is not blank, get vipserver ip:port replace graphEndpoint param
             try {
-                String vipServerEndpoint = LoadTool.getEndpointFromVipServerDomain(vipServerDomain);
-                logger.info("vipServerEndpoint is {}", vipServerEndpoint);
-                if (vipServerEndpoint != null) {
-                    graphEndpoint = vipServerEndpoint;
+                List<EndpointDTO> vipServerEndpoints = Utils.getEndpointFromVipServerDomain(primaryVipServerDomain);
+                logger.info("vipServerEndpoint is {}", vipServerEndpoints);
+                if (vipServerEndpoints.size() > 0) {
+                    graphEndpoint = vipServerEndpoints.get(0).toAddress();
                 }
             } catch (Exception e) {
                 logger.error("Get vipserver domain endpoint has error.", e);
             }
         }
 
-        Long replayTimeStamp = replayTimeStamp(args);
+        boolean compactAfterCommit = Boolean.parseBoolean(properties.getProperty(DataLoadConfig.COMPACT_AFTER_COMMIT, "false"));
+        boolean reopenAfterCommit = Boolean.parseBoolean(properties.getProperty(DataLoadConfig.REOPEN_AFTER_COMMIT, "false"));
+        Long replayTimeStamp = getReplayTimeStampFromArgs(args);
+        logger.info("replayTimeStamp is {}", replayTimeStamp);
 
         String uniquePath =
                 properties.getProperty(DataLoadConfig.UNIQUE_PATH, UuidUtils.getBase64UUIDString());
@@ -200,6 +208,16 @@ public class OfflineBuildOdps {
         }
 
         if (replayTimeStamp != null) {
+            if (waitTimeBeforeReplay > 0) {
+                long waitStartTime = System.currentTimeMillis();
+                logger.info("start wait before replay: " + waitStartTime);
+                try {
+                    Thread.sleep(waitTimeBeforeReplay);
+                    logger.info("wait time has arrived. will replay soon.");
+                } catch (InterruptedException e) {
+                    logger.warn("wait thread has been interrupt. will replay soon.");
+                }
+            }
             long replayStartTime = System.currentTimeMillis();
             logger.info("start replay records: " + replayStartTime);
             // need replay time stamp
@@ -210,6 +228,30 @@ public class OfflineBuildOdps {
             long replayEndTime = System.currentTimeMillis();
             logger.info("replay records end: " + replayEndTime);
         }
+
+        if (compactAfterCommit) {
+            logger.info("endpoint {} compact start:", graphEndpoint);
+            boolean compactSuccess = client.compactDB();
+            logger.info("compact result:" + compactSuccess);
+        }
+
+        if (reopenAfterCommit) {
+            if (!"".equals(secondaryVipServerDomain)) {
+                try {
+                    List<EndpointDTO> secondaryVipServerEndpoints = Utils.getEndpointFromVipServerDomain(secondaryVipServerDomain);
+                    for (EndpointDTO secondaryVipServerEndpoint : secondaryVipServerEndpoints) {
+                        String address = secondaryVipServerEndpoint.getIp() + ":55556";
+                        logger.info("endpoint: {}, reopen start.", address);
+                        GrootClient secondaryClient = Utils.getClient(address, username, password);
+                        boolean reopenSuccess = secondaryClient.reopenSecondary();
+                        logger.info("endpoint: {}, reopen result:{}", address, reopenSuccess);
+                    }
+                } catch (Exception e) {
+                    logger.error("Get secondary vipserver domain endpoint has error.", e);
+                    throw e;
+                }
+            }
+        }
     }
 
     /**
@@ -217,7 +259,7 @@ public class OfflineBuildOdps {
      * @param args
      * @return
      */
-    private static Long replayTimeStamp(String[] args) {
+    private static Long getReplayTimeStampFromArgs(String[] args) {
         for (String arg : args) {
             if (arg.contains(DataLoadConfig.REPLAY_DATE)) {
                 String[] kv = arg.split("=");
@@ -225,7 +267,7 @@ public class OfflineBuildOdps {
                     return null;
                 }
                 String replayDate = kv[1];
-                return LoadTool.transferDateToTimeStamp(replayDate, "yyyyMMdd");
+                return Utils.transferDateToTimeStamp(replayDate, "yyyyMMdd");
             }
         }
         return null;
