@@ -77,10 +77,10 @@ public class OfflineBuildOdps {
         if (!"".equals(primaryVipServerDomain)) {
             // if vipserver domain is not blank, get vipserver ip:port replace graphEndpoint param
             try {
-                List<String> vipServerEndpoints = Utils.getEndpointFromVipServerDomain(primaryVipServerDomain);
+                List<EndpointDTO> vipServerEndpoints = Utils.getEndpointFromVipServerDomain(primaryVipServerDomain);
                 logger.info("vipServerEndpoint is {}", vipServerEndpoints);
                 if (vipServerEndpoints.size() > 0) {
-                    graphEndpoint = vipServerEndpoints.get(0);
+                    graphEndpoint = vipServerEndpoints.get(0).toAddress();
                 }
             } catch (Exception e) {
                 logger.error("Get vipserver domain endpoint has error.", e);
@@ -90,6 +90,7 @@ public class OfflineBuildOdps {
         boolean compactAfterCommit = Boolean.parseBoolean(properties.getProperty(DataLoadConfig.COMPACT_AFTER_COMMIT, "false"));
         boolean reopenAfterCommit = Boolean.parseBoolean(properties.getProperty(DataLoadConfig.REOPEN_AFTER_COMMIT, "false"));
         Long replayTimeStamp = getReplayTimeStampFromArgs(args);
+        logger.info("replayTimeStamp is {}", replayTimeStamp);
 
         String uniquePath =
                 properties.getProperty(DataLoadConfig.UNIQUE_PATH, UuidUtils.getBase64UUIDString());
@@ -206,27 +207,6 @@ public class OfflineBuildOdps {
             }
         }
 
-        if (compactAfterCommit) {
-            boolean compactSuccess = client.compactDB();
-            logger.info("compact result:" + compactSuccess);
-        }
-
-        if (reopenAfterCommit) {
-            if (!"".equals(secondaryVipServerDomain)) {
-                try {
-                    List<String> secondaryVipServerEndpoints = Utils.getEndpointFromVipServerDomain(primaryVipServerDomain);
-                    for (String secondaryVipServerEndpoint : secondaryVipServerEndpoints) {
-                        GrootClient secondaryClient = Utils.getClient(secondaryVipServerEndpoint, username, password);
-                        boolean reopenSuccess = secondaryClient.reopenSecondary();
-                        logger.info("endpoint: {}, reopen result:{}", secondaryVipServerEndpoint, reopenSuccess);
-                    }
-                } catch (Exception e) {
-                    logger.error("Get secondary vipserver domain endpoint has error.", e);
-                    throw e;
-                }
-            }
-        }
-
         if (replayTimeStamp != null) {
             if (waitTimeBeforeReplay > 0) {
                 long waitStartTime = System.currentTimeMillis();
@@ -247,6 +227,30 @@ public class OfflineBuildOdps {
             }
             long replayEndTime = System.currentTimeMillis();
             logger.info("replay records end: " + replayEndTime);
+        }
+
+        if (compactAfterCommit) {
+            logger.info("endpoint {} compact start:", graphEndpoint);
+            boolean compactSuccess = client.compactDB();
+            logger.info("compact result:" + compactSuccess);
+        }
+
+        if (reopenAfterCommit) {
+            if (!"".equals(secondaryVipServerDomain)) {
+                try {
+                    List<EndpointDTO> secondaryVipServerEndpoints = Utils.getEndpointFromVipServerDomain(secondaryVipServerDomain);
+                    for (EndpointDTO secondaryVipServerEndpoint : secondaryVipServerEndpoints) {
+                        String address = secondaryVipServerEndpoint.getIp() + ":55556";
+                        logger.info("endpoint: {}, reopen start.", address);
+                        GrootClient secondaryClient = Utils.getClient(address, username, password);
+                        boolean reopenSuccess = secondaryClient.reopenSecondary();
+                        logger.info("endpoint: {}, reopen result:{}", address, reopenSuccess);
+                    }
+                } catch (Exception e) {
+                    logger.error("Get secondary vipserver domain endpoint has error.", e);
+                    throw e;
+                }
+            }
         }
     }
 

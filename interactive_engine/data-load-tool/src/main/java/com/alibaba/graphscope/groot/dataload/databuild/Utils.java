@@ -227,10 +227,10 @@ public class Utils {
         }
     }
 
-    public static List<String> getEndpointFromVipServerDomain(String domain) throws Exception {
+    public static List<EndpointDTO> getEndpointFromVipServerDomain(String domain) throws Exception {
         String srvResponse = HttpClient.doGet(VIP_SERVER_HOST_URL, null);
         String[] srvList = srvResponse.split("\n");
-        List<String> endpoints = new ArrayList<>();
+        List<EndpointDTO> endpoints = new ArrayList<>();
         for (String srv : srvList) {
             String url = String.format(VIP_SERVER_GET_DOMAIN_ENDPOINT_URL, srv, domain);
             logger.info("url is {}", url);
@@ -245,10 +245,11 @@ public class Utils {
                         boolean isValid = endpointJson.get("valid").asBoolean();
                         if (isValid) {
                             String ip = endpointJson.get("ip").asText();
-                            String port = endpointJson.get("port").asText();
-                            endpoints.add(ip + ":" + port);
+                            int port = endpointJson.get("port").asInt();
+                            endpoints.add(new EndpointDTO(ip, port));
                         }
                     }
+                    return endpoints;
                 }
             }catch (Exception e) {
                 // continue
