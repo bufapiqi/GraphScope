@@ -32,7 +32,11 @@ data:
     store.node.count={{ .Values.store.replicaCount }}
     frontend.node.count={{ .Values.frontend.replicaCount }}
     coordinator.node.count={{ .Values.coordinator.replicaCount }}
+{{- if .Values.partitionCount }}
+    partition.count={{ .Values.partitionCount }}
+{{- else }}
     partition.count={{ .Values.store.replicaCount | mul 16 }}
+{{- end }}
 
     ## Frontend Config
     frontend.service.port={{ .Values.frontend.service.servicePort }}
@@ -114,10 +118,15 @@ data:
   setup.sh: |-
     #!/bin/bash
 
+    {{- if .Values.secondary.enabled }}
+    sudo mkdir -p {{ .Values.secondary.storeDataPath}}
+    sudo chown -R graphscope:graphscope {{ .Values.secondary.storeDataPath}} || true
+    {{- else}}
     sudo chown -R graphscope:graphscope {{ .Values.storeDataPath }} || true
     sudo chown -R graphscope:graphscope /etc/groot || true
+    {{- end}}
 
-    [[ `hostname` =~ -([0-9]+)$ ]] || exit 1
+    [[ {{ .Values.extractIndexName }} =~ -([0-9]+)$ ]] || exit 1
     ordinal=${BASH_REMATCH[1]}
 
     pegasus_hosts=""
@@ -130,18 +139,77 @@ data:
     done
     pegasus_hosts=${pegasus_hosts:1}
 
+    {{- if .Values.store.nasPersistence.enabled }}
+    RELEASE_FULL_NAME="{{ include "graphscope-store.fullname" . }}"
+    STORE_RELEASE_FULL_NAME="{{ include "graphscope-store.fullname" . }}-store-"
+    PRIMARY_POD_PREFIX="{{ .Values.secondary.primaryReleaseName }}-{{ include "graphscope-store.name" . }}"
+    PRIMARY_STORE_POD_PREFIX="${PRIMARY_POD_PREFIX}-store-"
+    POD_INDEX=${POD_NAME#"${STORE_RELEASE_FULL_NAME}"}
+    PRIMARY_POD_NAME="${PRIMARY_STORE_POD_PREFIX}${POD_INDEX}"
+
+    # 确定 NAS 类型和相关路径前缀, 分散到4个盘上
+    if [ $(($POD_INDEX % 4)) -eq 0 ]; then
+      NAS_TYPE="a"
+    elif [ $(($POD_INDEX % 4)) -eq 1 ]; then
+      NAS_TYPE="b"
+    elif [ $(($POD_INDEX % 4)) -eq 2 ]; then
+      NAS_TYPE="c"
+    else
+      NAS_TYPE="d"
+    fi
+
+    STORE_PATH_PREFIX="/var/lib/graphscope-store-nas-${NAS_TYPE}"
+    WAL_PATH_PREFIX="/var/lib/wal-nas-${NAS_TYPE}"
+    LOG_DIR_PREFIX="/var/log/graphscope-nas"
+
+    # 使用变量替换硬编码的路径
+    sudo sed -e "s/GRAPH_NAME/${GRAPH_NAME}/g" \
+    -e "s/ROLE/${ROLE}/g" \
+    -e "s/INDEX/${ordinal}/g" \
+    -e "s/PEGASUS_HOSTS/${pegasus_hosts}/g" \
+    -e "s/ZK_BASE_PATH/${RELEASE_FULL_NAME}/g" \
+    -e "s@DATA_PATH@${STORE_PATH_PREFIX}/${PRIMARY_POD_NAME}@g" \
+    -e "s@WAL_PATH@${WAL_PATH_PREFIX}/${PRIMARY_POD_NAME}@g" \
+    -e "s@LOG4RS_CONFIG@${GRAPHSCOPE_HOME}/groot/conf/log4rs.yml@g" \
+    /etc/groot/groot.config.tpl | sudo tee -a /etc/groot/groot.config
+
+    export LOG_DIR="${LOG_DIR_PREFIX}/${RELEASE_FULL_NAME}/${POD_NAME}" || true
+
+    # 创建所需的目录并设置所需的权限
+    chown() {
+      local path_prefix=$1
+      sudo chown -R graphscope:graphscope ${path_prefix} || true
+      sudo chown -R graphscope:graphscope ${path_prefix}/${PRIMARY_POD_NAME} || true
+    }
+
+    chown ${STORE_PATH_PREFIX}
+    chown ${WAL_PATH_PREFIX}
+
+    sudo chown -R graphscope:graphscope ${LOG_DIR_PREFIX} || true
+    sudo mkdir -p ${LOG_DIR_PREFIX}/${RELEASE_FULL_NAME} || true
+    sudo chown -R graphscope:graphscope ${LOG_DIR_PREFIX}/${RELEASE_FULL_NAME} || true
+    sudo mkdir -p ${LOG_DIR_PREFIX}/${RELEASE_FULL_NAME}/${POD_NAME} || true
+    sudo chown -R graphscope:graphscope ${LOG_DIR_PREFIX}/${RELEASE_FULL_NAME}/${POD_NAME} || true
+
+    sudo chown -R graphscope:graphscope /var/lib/meta || true
+    sudo chown -R graphscope:graphscope /etc/groot || true
+    {{- else }}
     sudo sed  -e "s/ROLE/${ROLE}/g" \
               -e "s/INDEX/${ordinal}/g" \
               -e "s/PEGASUS_HOSTS/${pegasus_hosts}/g" \
               -e "s@LOG4RS_CONFIG@${GRAPHSCOPE_HOME}/groot/conf/log4rs.yml@g" \
     /etc/groot/groot.config.tpl | sudo tee -a /etc/groot/groot.config
+    {{- end }}
 
     export LOG_NAME=graphscope-store
     export GROOT_CONF_FILE=/etc/groot/groot.config
+    {{- if .Values.pegasusCorePoolSize}}
+    export PEGASUS_CORE_POOL_SIZE=16
+    {{- end }}
 
     export OTEL_SDK_DISABLED={{ not .Values.otel.enabled }}
 
-    {{- if .Values.otel.enabled }}
+    {{- if and .Values.otel.enabled (not .Values.otel.onlyEnable) }}
     export OTEL_TRACES_SAMPLER={{ .Values.otel.traces.sampler.name }}
     export OTEL_TRACES_SAMPLER_ARG={{ .Values.otel.traces.sampler.arg }}
 

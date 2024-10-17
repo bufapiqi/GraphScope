@@ -148,7 +148,11 @@ Create a default fully qualified kafka name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 */}}
 {{- define "graphscope-store.kafka.fullname" -}}
+{{- if .Values.secondary.primaryReleaseName -}}
+{{- printf "%s-%s" .Values.secondary.primaryReleaseName "kafka" | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
 {{- printf "%s-%s" .Release.Name "kafka" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
 {{- end -}}
 
 {{/*
@@ -165,7 +169,7 @@ Get full broker list.
 {{- $brokerList := list }}
 {{- range $e, $i := until $replicaCount }}
 {{- $brokerList = append $brokerList (printf "%s-%d.%s-headless.%s.svc.%s:%d" $fullname $i $fullname $releaseNamespace $clusterDomain $servicePort) }}
-{{- end }}
+{{- end -}}
 {{- join "," $brokerList | printf "%s" -}}
 {{- end -}}
 
@@ -175,5 +179,9 @@ Create a default fully qualified zookeeper name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 */}}
 {{- define "graphscope-store.zookeeper.fullname" -}}
+{{- if .Values.secondary.primaryReleaseName -}}
+{{- printf "%s-%s" .Values.secondary.primaryReleaseName "zookeeper" | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
 {{- printf "%s-%s" .Release.Name "zookeeper" | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
 {{- end -}}

@@ -100,6 +100,15 @@ store:
   ##
   schedulerName: ""
 
+  ## Enable using nas persistence
+  nasPersistence:
+    ## If true, use nas Persistent and not use emptyDir, If false, use persistence param
+    ##
+    enabled: false
+    ## If true, several store will usd different nas instance to mount
+    ##
+    multiNas: false
+
   ## @param extraVolumes Optionally specify extra list of additional volumes for the Store pod(s)
   ## e.g:
   ## extraVolumes:
@@ -169,6 +178,21 @@ frontend:
     ## Provide any additional annotations which may be required
     ##
     annotations: {}
+  ## @param extraVolumes Optionally specify extra list of additional volumes for the Store pod(s)
+  ## e.g:
+  ## extraVolumes:
+  ##   - name: kafka-jaas
+  ##     secret:
+  ##       secretName: kafka-jaas
+  ##
+  extraVolumes: []
+  ## @param extraVolumeMounts Optionally specify extra list of additional volumeMounts for the Store container(s)
+  ## extraVolumeMounts:
+  ##   - name: kafka-jaas
+  ##     mountPath: /bitnami/kafka/config/kafka_jaas.conf
+  ##     subPath: kafka_jaas.conf
+  ##
+  extraVolumeMounts: []
 
 
   ## @param hostAliases pods host aliases
@@ -225,6 +249,12 @@ coordinator:
     size: 100Mi
     selector: {}
 
+  ## Enable using nas persistence
+  nasPersistence:
+    ## If true, use nas Persistent and not use emptyDir, If false, use persistence param
+    ##
+    enabled: false
+
   ## @param hostAliases pods host aliases
   ## https://kubernetes.io/docs/concepts/services-networking/add-entries-to-pod-etc-hosts-with-host-aliases/
   ##
@@ -250,6 +280,22 @@ coordinator:
   ## ref: https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/
   ##
   schedulerName: ""
+
+  ## @param extraVolumes Optionally specify extra list of additional volumes for the Store pod(s)
+  ## e.g:
+  ## extraVolumes:
+  ##   - name: kafka-jaas
+  ##     secret:
+  ##       secretName: kafka-jaas
+  ##
+  extraVolumes: [ ]
+  ## @param extraVolumeMounts Optionally specify extra list of additional volumeMounts for the Store container(s)
+  ## extraVolumeMounts:
+  ##   - name: kafka-jaas
+  ##     mountPath: /bitnami/kafka/config/kafka_jaas.conf
+  ##     subPath: kafka_jaas.conf
+  ##
+  extraVolumeMounts: [ ]
 
 ## GraphScope Portal parameters
 ##
@@ -369,6 +415,9 @@ commonLabels: {}
 commonAnnotations: {}
 ## @param extraDeploy Array of extra objects to deploy with the release
 ##
+
+## choose hostName or podName to extract POD Index
+extractIndexName: "`hostname`"
 
 ## Configure extra options for containers' liveness, readiness and startup probes
 livenessProbe:
@@ -611,6 +660,7 @@ pegasus:
 secondary:
   enabled: false
   storeDataPath: "./data_secondary"
+  primaryReleaseName: ""
 
 
 backup:
@@ -618,6 +668,8 @@ backup:
 
 otel:
   enabled: false
+  ## only open otel sdk, dont use sample / export
+  onlyEnable: false
   collector:
     image:
       registry: docker.io
@@ -646,3 +698,6 @@ collect:
     initial:
       delay: 5
     interval: 60
+
+sidecars: []
+

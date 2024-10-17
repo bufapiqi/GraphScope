@@ -131,8 +131,10 @@ spec:
               port: gaia-rpc
           {{- end }}
           volumeMounts:
+            {{- if not .Values.store.nasPersistence.multiNas }}
             - name: data
               mountPath: {{ .Values.storeDataPath }}
+            {{- end }}
             - name: config
               mountPath: /etc/groot/groot.config.tpl
               subPath: groot.config
@@ -142,6 +144,9 @@ spec:
             {{- if .Values.store.extraVolumeMounts }}
             {{- include "common.tplvalues.render" (dict "value" .Values.store.extraVolumeMounts "context" $) | nindent 12 }}
             {{- end }}
+        {{- if .Values.sidecars }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.sidecars "context" $) | nindent 8 }}
+        {{- end }}
       volumes:
         - name: config
           configMap:
@@ -150,14 +155,14 @@ spec:
         {{- if .Values.store.extraVolumes }}
         {{- include "common.tplvalues.render" (dict "value" .Values.store.extraVolumes "context" $) | nindent 8 }}
         {{- end }}
-  {{- if and .Values.store.persistence.enabled .Values.store.persistence.existingClaim }}
+    {{- if and .Values.store.persistence.enabled .Values.store.persistence.existingClaim }}
         - name: data
           persistentVolumeClaim:
             claimName: {{ printf "%s" (tpl .Values.store.persistence.existingClaim .) }}
-  {{- else if not .Values.store.persistence.enabled }}
+    {{- else if and (not .Values.store.persistence.enabled) (not .Values.store.nasPersistence.multiNas) }}
         - name: data
           emptyDir: {}
-  {{- else if and .Values.store.persistence.enabled (not .Values.store.persistence.existingClaim) }}
+    {{- else if and .Values.store.persistence.enabled (not .Values.store.persistence.existingClaim) }}
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -179,5 +184,5 @@ spec:
         {{- if .Values.store.persistence.selector }}
         selector: {{- include "graphscope-store.tplvalues.render" (dict "value" .Values.store.persistence.selector "context" $) | nindent 10 }}
         {{- end -}}
-  {{- end }}
+    {{- end }}
 {{- end -}}

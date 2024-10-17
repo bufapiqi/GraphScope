@@ -135,11 +135,20 @@ spec:
             - name: config
               mountPath: /etc/groot/setup.sh
               subPath: setup.sh
+            {{- if .Values.coordinator.extraVolumeMounts }}
+            {{- include "common.tplvalues.render" (dict "value" .Values.coordinator.extraVolumeMounts "context" $) | nindent 12 }}
+            {{- end }}
+        {{- if .Values.sidecars }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.sidecars "context" $) | nindent 8 }}
+        {{- end }}
       volumes:
         - name: config
           configMap:
             name: {{ include "graphscope-store.configmapName" . }}
             defaultMode: 0755
+        {{- if .Values.coordinator.extraVolumes }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.coordinator.extraVolumes "context" $) | nindent 8 }}
+        {{- end }}
   {{- if and .Values.coordinator.persistence.enabled .Values.coordinator.persistence.existingClaim }}
         - name: meta
           persistentVolumeClaim:
@@ -148,6 +157,7 @@ spec:
         - name: meta
           emptyDir: {}
   {{- else if and .Values.coordinator.persistence.enabled (not .Values.coordinator.persistence.existingClaim) }}
+  {{- if not .Values.coordinator.nasPersistence.enabled }}
   volumeClaimTemplates:
     - metadata:
         name: meta
@@ -169,5 +179,6 @@ spec:
         {{- if .Values.coordinator.persistence.selector }}
         selector: {{- include "graphscope-store.tplvalues.render" (dict "value" .Values.coordinator.persistence.selector "context" $) | nindent 10 }}
         {{- end -}}
+  {{- end }}
   {{- end }}
 {{- end -}}

@@ -137,9 +137,18 @@ spec:
             - name: config
               mountPath: /etc/groot/setup.sh
               subPath: setup.sh
+            {{- if .Values.frontend.extraVolumeMounts }}
+            {{- include "common.tplvalues.render" (dict "value" .Values.frontend.extraVolumeMounts "context" $) | nindent 12 }}
+            {{- end }}
+        {{- if .Values.sidecars }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.sidecars "context" $) | nindent 8 }}
+        {{- end }}
       volumes:
         - name: config
           configMap:
             name: {{ include "graphscope-store.configmapName" . }}
             defaultMode: 0755
+        {{- if .Values.frontend.extraVolumes }}
+        {{- include "common.tplvalues.render" (dict "value" .Values.frontend.extraVolumes "context" $) | nindent 8 }}
+        {{- end }}
 {{- end }}
