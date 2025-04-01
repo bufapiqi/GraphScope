@@ -71,13 +71,33 @@ public class OfflineBuildOdps {
         String graphEndpoint = properties.getProperty(DataLoadConfig.GRAPH_ENDPOINT);
         String username = properties.getProperty(DataLoadConfig.USER_NAME, "");
         String password = properties.getProperty(DataLoadConfig.PASS_WORD, "");
+        String throwExceptionWhenKeyRepeated = properties.getProperty(DataLoadConfig.THROW_EXCEPTION_WHEN_KEY_REPEATED,"true");
         long waitTimeBeforeCommit =
                 Long.parseLong(
                         properties.getProperty(DataLoadConfig.WAIT_TIME_BEFORE_COMMIT, "-1"));
 
+        long waitTimeAfterCommit =
+                Long.parseLong(
+                        properties.getProperty(DataLoadConfig.WAIT_TIME_AFTER_COMMIT, "-1"));
+
         long waitTimeBeforeReplay =
                 Long.parseLong(
                         properties.getProperty(DataLoadConfig.WAIT_TIME_BEFORE_REPLAY, "-1"));
+
+        long waitTimeAfterCompact =
+                Long.parseLong(
+                        properties.getProperty(DataLoadConfig.WAIT_TIME_AFTER_COMPACT, "-1"));
+
+        long waitTimeBetweenReopen =
+                Long.parseLong(
+                        properties.getProperty(DataLoadConfig.WAIT_TIME_BETWEEN_REOPEN, "-1"));
+
+        int reopenRetryCount =
+                Integer.parseInt(
+                        properties.getProperty(DataLoadConfig.REOPEN_RETRY_COUNT, "1"));
+
+        String vipserverUrl = getVipserverUrlFromArgs(args);
+        logger.info("vipserverUrl is {}", vipserverUrl);
 
         String primaryVipServerDomain =
                 properties.getProperty(DataLoadConfig.PRIMARY_VIP_SERVER_DOMAIN, "");
@@ -87,7 +107,7 @@ public class OfflineBuildOdps {
             // if vipserver domain is not blank, get vipserver ip:port replace graphEndpoint param
             try {
                 List<EndpointDTO> vipServerEndpoints =
-                        Utils.getEndpointFromVipServerDomain(primaryVipServerDomain);
+                        Utils.getEndpointFromVipServerDomain(primaryVipServerDomain, vipserverUrl);
                 logger.info("vipServerEndpoint is {}", vipServerEndpoints);
                 if (vipServerEndpoints.size() > 0) {
                     graphEndpoint = vipServerEndpoints.get(0).toAddress();
@@ -177,6 +197,7 @@ public class OfflineBuildOdps {
         outputMeta.put(DataLoadConfig.COLUMN_MAPPINGS, mapper.writeValueAsString(info));
         outputMeta.put(DataLoadConfig.UNIQUE_PATH, uniquePath);
         outputMeta.put(DataLoadConfig.DATA_SINK_TYPE, dataSinkType);
+        outputMeta.put(DataLoadConfig.THROW_EXCEPTION_WHEN_KEY_REPEATED, throwExceptionWhenKeyRepeated);
 
         job.set(DataLoadConfig.META_INFO, mapper.writeValueAsString(outputMeta));
         job.set(DataLoadConfig.DATA_SINK_TYPE, dataSinkType);
@@ -208,6 +229,16 @@ public class OfflineBuildOdps {
                     }
                 }
                 client.commitDataLoad(tableToTarget, uniquePath);
+                if (waitTimeAfterCommit > 0) {
+                    long waitStartTime = System.currentTimeMillis();
+                    logger.info("start wait after commit: " + waitStartTime);
+                    try {
+                        Thread.sleep(waitTimeAfterCommit);
+                        logger.info("after commit wait time has arrived");
+                    } catch (InterruptedException e) {
+                        logger.warn("after commit wait thread has been interrupt.");
+                    }
+                }
             } finally {
                 try {
                     client.clearIngest(uniquePath);
@@ -217,27 +248,56 @@ public class OfflineBuildOdps {
             }
         }
         replayRecords(replayTimeStamp, waitTimeBeforeReplay, client);
-        compactDb(compactAfterCommit, client, graphEndpoint);
-        reopenDb(reopenAfterCommit, secondaryVipServerDomain, username, password);
+        compactDb(compactAfterCommit, client, graphEndpoint, waitTimeAfterCompact);
+        reopenDb(reopenAfterCommit, secondaryVipServerDomain, vipserverUrl, username, password, waitTimeBetweenReopen, reopenRetryCount);
     }
 
     private static void reopenDb(
             boolean reopenAfterCommit,
             String secondaryVipServerDomain,
+            String vipserverUrl,
             String username,
-            String password)
+            String password,
+            long waitTimeBetweenReopen,
+            int reopenRetryCount)
             throws Exception {
         if (reopenAfterCommit) {
             if (!"".equals(secondaryVipServerDomain)) {
                 try {
                     List<EndpointDTO> secondaryVipServerEndpoints =
-                            Utils.getEndpointFromVipServerDomain(secondaryVipServerDomain);
+                            Utils.getEndpointFromVipServerDomain(secondaryVipServerDomain, vipserverUrl);
                     for (EndpointDTO secondaryVipServerEndpoint : secondaryVipServerEndpoints) {
                         String address = secondaryVipServerEndpoint.getIp() + ":55556";
-                        logger.info("endpoint: {}, reopen start.", address);
-                        GrootClient secondaryClient = Utils.getClient(address, username, password);
-                        boolean reopenSuccess = secondaryClient.reopenSecondary();
-                        logger.info("endpoint: {}, reopen result:{}", address, reopenSuccess);
+                        int retryCnt = 0;
+                        while (retryCnt < reopenRetryCount) {
+                            try {
+                                logger.info("endpoint: {}, reopen start.", address);
+                                GrootClient secondaryClient = Utils.getClient(address, username, password);
+                                boolean reopenSuccess = secondaryClient.reopenSecondary();
+                                if (reopenSuccess) {
+                                    logger.info("endpoint: {}, reopen result:{}", address, reopenSuccess);
+                                    break;
+                                } else {
+                                    logger.info("endpoint: {}, reopen result:{}", address, reopenSuccess);
+                                }
+                            } catch (Exception e) {
+                                logger.error("reopen secondary {} has error, retry num {}", address, retryCnt);
+//                                if (retryCnt == 2) {
+//                                    // 已重试三次还是失败, 抛出异常
+//                                    throw e;
+//                                }
+                            } finally {
+                                retryCnt++;
+                                try {
+                                    if (waitTimeBetweenReopen > 0) {
+                                        Thread.sleep(waitTimeBetweenReopen);
+                                        logger.info("wait time between reopen.");
+                                    }
+                                } catch (InterruptedException e) {
+                                    logger.warn("wait time between reopen thread has been interrupt.");
+                                }
+                            }
+                        }
                     }
                 } catch (Exception e) {
                     logger.error("Get secondary vipserver domain endpoint has error.", e);
@@ -248,11 +308,21 @@ public class OfflineBuildOdps {
     }
 
     private static void compactDb(
-            boolean compactAfterCommit, GrootClient client, String graphEndpoint) {
+            boolean compactAfterCommit, GrootClient client, String graphEndpoint, long waitTimeAfterCompact) {
         if (compactAfterCommit) {
             logger.info("endpoint {} compact start:", graphEndpoint);
             boolean compactSuccess = client.compactDB();
             logger.info("compact result:" + compactSuccess);
+            if (waitTimeAfterCompact > 0) {
+                logger.info("start wait after compact");
+                try {
+                    // wait 2min
+                    Thread.sleep(waitTimeAfterCompact);
+                    logger.info("after compact wait time has arrived. will replay soon.");
+                } catch (InterruptedException e) {
+                    logger.warn("after compact wait thread has been interrupt. will replay soon.");
+                }
+            }
         }
     }
 
@@ -272,13 +342,26 @@ public class OfflineBuildOdps {
             long replayStartTime = System.currentTimeMillis();
             logger.info("start replay records: " + replayStartTime);
             // need replay time stamp
-            List<Long> snapShotIds = client.replayRecords(-1, replayTimeStamp);
+            List<Long> snapShotIds = client.replayRecordsV2(-1, replayTimeStamp);
             for (Long snapShotId : snapShotIds) {
                 client.remoteFlush(snapShotId);
             }
             long replayEndTime = System.currentTimeMillis();
             logger.info("replay records end: " + replayEndTime);
         }
+    }
+
+    private static String getVipserverUrlFromArgs(String[] args) {
+        for (String arg : args) {
+            if (arg.contains(DataLoadConfig.VIPSERVER_URL)) {
+                String[] kv = arg.split("url=");
+                if (kv.length < 2) {
+                    return null;
+                }
+                return kv[1].replace("\"", "");
+            }
+        }
+        return null;
     }
 
     /**

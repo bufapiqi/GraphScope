@@ -17,12 +17,18 @@ public class DataLoadConfig {
     public static final String USER_NAME = "auth.username";
     public static final String PASS_WORD = "auth.password";
     public static final String WAIT_TIME_BEFORE_COMMIT = "wait.time.before.commit";
+    public static final String WAIT_TIME_AFTER_COMMIT = "wait.time.after.commit";
     public static final String WAIT_TIME_BEFORE_REPLAY = "wait.time.before.replay";
     public static final String COMPACT_AFTER_COMMIT = "compact.after.commit";
+    public static final String WAIT_TIME_AFTER_COMPACT = "wait.time.after.compact";
+    public static final String WAIT_TIME_BETWEEN_REOPEN = "wait.time.between.reopen";
+    public static final String REOPEN_RETRY_COUNT = "reopen.retry.count";
     public static final String REOPEN_AFTER_COMMIT = "reopen.after.commit";
     public static final String PRIMARY_VIP_SERVER_DOMAIN = "primary.vipserver.domain";
     public static final String SECONDARY_VIP_SERVER_DOMAIN = "secondary.vipserver.domain";
     public static final String REPLAY_DATE = "replay.date";
+    public static final String VIPSERVER_URL = "vipserver.url";
+    public static final String THROW_EXCEPTION_WHEN_KEY_REPEATED = "throw.exception.key.repeated";
 
     /** job on HDFS configurations **/
 

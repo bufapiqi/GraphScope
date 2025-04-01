@@ -16,11 +16,15 @@
 package com.alibaba.graphscope.groot.dataload.databuild;
 
 import org.rocksdb.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public class SstRecordWriter {
+    private static final Logger logger = LoggerFactory.getLogger(SstRecordWriter.class);
+
     private final SstFileWriter sstFileWriter;
     private final String charSet;
     private boolean isEmpty;
@@ -41,7 +45,7 @@ public class SstRecordWriter {
         }
     }
 
-    public void write(String key, String value) throws IOException {
+    public void write(String key, String value, boolean throwExceptionWhenKeyRepeat) throws IOException {
         byte[] keyBytes = key.getBytes(charSet);
         try {
             sstFileWriter.put(keyBytes, value.getBytes(charSet));
@@ -49,8 +53,12 @@ public class SstRecordWriter {
             ByteBuffer buffer = ByteBuffer.wrap(keyBytes);
             long tableId = buffer.getLong(0) >> 1;
             long hashId = buffer.getLong(8);
-            throw new IOException(
-                    "Write SST Error! TableId: [" + tableId + "], hashId: [" + hashId + "]", e);
+            if (throwExceptionWhenKeyRepeat) {
+                throw new IOException(
+                        "Write SST Error! TableId: [" + tableId + "], hashId: [" + hashId + "]", e);
+            } else {
+                logger.error("Write SST Error! TableId: [" + tableId + "], hashId: [" + hashId + "]");
+            }
         }
         this.isEmpty = false;
     }

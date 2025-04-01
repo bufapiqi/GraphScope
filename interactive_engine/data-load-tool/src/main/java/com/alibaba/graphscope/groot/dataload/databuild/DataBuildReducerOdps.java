@@ -43,6 +43,7 @@ public class DataBuildReducerOdps extends ReducerBase {
     private String sstFileName = null;
     private String chkFileName = null;
     private String metaFileName = DataLoadConfig.META_FILE_NAME;
+    private boolean throwExceptionWhenKeyRepeat = true;
 
     @Override
     public void setup(TaskContext context) throws IOException {
@@ -53,6 +54,7 @@ public class DataBuildReducerOdps extends ReducerBase {
                 objectMapper.readValue(metaData, new TypeReference<Map<String, String>>() {});
 
         this.uniquePath = metaMap.get(DataLoadConfig.UNIQUE_PATH);
+        this.throwExceptionWhenKeyRepeat = Boolean.parseBoolean(metaMap.get(DataLoadConfig.THROW_EXCEPTION_WHEN_KEY_REPEATED));
 
         this.taskId = context.getTaskID().toString();
         taskId = taskId.substring(taskId.length() - 5);
@@ -83,7 +85,7 @@ public class DataBuildReducerOdps extends ReducerBase {
             throws IOException {
         while (values.hasNext()) {
             Record value = values.next();
-            sstRecordWriter.write((String) key.get(0), (String) value.get(0));
+            sstRecordWriter.write((String) key.get(0), (String) value.get(0), this.throwExceptionWhenKeyRepeat);
         }
         context.progress();
     }

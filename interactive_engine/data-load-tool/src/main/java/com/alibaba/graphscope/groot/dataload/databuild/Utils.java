@@ -16,6 +16,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -271,8 +272,11 @@ public class Utils {
         }
     }
 
-    public static List<EndpointDTO> getEndpointFromVipServerDomain(String domain) throws Exception {
-        String srvResponse = HttpClient.doGet(VIP_SERVER_HOST_URL, null);
+    public static List<EndpointDTO> getEndpointFromVipServerDomain(String domain, String vipServer) throws Exception {
+        if (StringUtils.isBlank(vipServer)) {
+            vipServer = VIP_SERVER_HOST_URL;
+        }
+        String srvResponse = HttpClient.doGet(vipServer, null);
         String[] srvList = srvResponse.split("\n");
         List<EndpointDTO> endpoints = new ArrayList<>();
         for (String srv : srvList) {
